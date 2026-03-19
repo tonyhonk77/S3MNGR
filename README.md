@@ -7,8 +7,6 @@
 
 **S3 Manager** — это мощный и удобный веб-интерфейс для управления S3-совместимыми хранилищами. Запускается в Docker и предоставляет интуитивно понятный интерфейс для работы с файлами в облачных хранилищах.
 
-![S3 Manager Preview](https://via.placeholder.com/800x400/2196F3/ffffff?text=S3+Manager+Preview)
-
 ## ✨ Возможности
 
 ### 📁 Управление файлами
@@ -39,12 +37,6 @@
 - **Очередь операций** с счетчиком
 - **Вкладка с логами** для отладки
 - **Поддержка больших файлов** до 10GB с multipart upload
-
-## 🖥️ Скриншоты
-
-| Главный экран | Конструктор ссылок | Прогресс загрузки |
-|:-------------:|:------------------:|:-----------------:|
-| ![Main](https://via.placeholder.com/300x200/2196F3/ffffff?text=Main+Screen) | ![Links](https://via.placeholder.com/300x200/4CAF50/ffffff?text=Link+Builder) | ![Progress](https://via.placeholder.com/300x200/FF9800/ffffff?text=Progress+Bars) |
 
 ## 🚀 Быстрый старт
 
