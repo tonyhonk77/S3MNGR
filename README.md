@@ -50,3 +50,11 @@
 ```bash
 git clone https://github.com/yourusername/s3-manager.git
 cd s3-manager
+
+
+2. **Запускаем контейнер:**
+```bash
+docker compose up -d --build
+
+3. **Открываем приложение в любом браузере**
+http://localhost:8080/
