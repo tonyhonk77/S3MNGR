@@ -48,8 +48,8 @@
 
 1. **Клонируйте репозиторий:**
 ```bash
-git clone https://github.com/yourusername/s3-manager.git
-cd s3-manager
+git clone https://github.com/tonyhonk77/S3MNGR.git
+cd S3MNGR
 ```
 
 2. **Запускаем контейнер:**
