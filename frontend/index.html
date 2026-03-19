@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 Manager</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Шапка -->
+        <header>
+            <h1><i class="fas fa-cloud-upload-alt"></i> S3 Manager</h1>
+            <div class="connection-status" id="connectionStatus">
+                <i class="fas fa-plug"></i> Не подключено
+            </div>
+        </header>
+
+        <!-- Основное содержимое -->
+        <div class="main-content">
+            <!-- Боковая панель с профилями -->
+            <aside class="sidebar">
+                <div class="profiles-section">
+                    <h2><i class="fas fa-users"></i> Профили</h2>
+                    
+                    <!-- Форма нового профиля -->
+                    <div class="new-profile-form">
+                        <input type="text" id="profileName" placeholder="Название профиля" autocomplete="off">
+                        <input type="text" id="profileEndpoint" placeholder="Эндпоинт (https://...)" autocomplete="off">
+                        <input type="text" id="profileBucket" placeholder="Имя бакета" autocomplete="off">
+                        <button onclick="saveProfile()" class="btn-primary">
+                            <i class="fas fa-save"></i> Сохранить профиль
+                        </button>
+                    </div>
+
+                    <!-- Список профилей -->
+                    <div class="profiles-list" id="profilesList">
+                        <!-- Профили будут загружены сюда -->
+                    </div>
+                </div>
+
+                <!-- Конструктор ссылок (будет показан только при подключении) -->
+                <div class="link-builder-section" id="linkBuilderSection" style="display: none;">
+                    <h2><i class="fas fa-link"></i> Конструктор ссылок</h2>
+                    
+                    <div class="link-template-form">
+                        <label>Шаблон ссылки:</label>
+                        <input type="text" id="linkTemplate" placeholder="https://example.com/{file}{filename}" value="https://{bucket}.s3.amazonaws.com/{file}{filename}" autocomplete="off">
+                        <small>Используйте переменные для формирования ссылки</small>
+                        
+                        <div class="template-variables">
+                            <strong>Доступные переменные:</strong>
+                            <ul>
+                                <li><code>{file}</code> - путь к папке (punycode, со слешами, без имени файла)</li>
+                                <li><code>{fullpath}</code> - полный путь к файлу (punycode, с именем и слешами)</li>
+                                <li><code>{filename}</code> - только имя файла с расширением (punycode)</li>
+                                <li><code>{filename_without_ext}</code> - имя файла без расширения (punycode)</li>
+                                <li><code>{ext}</code> - расширение файла (с точкой, ASCII)</li>
+                                <li><code>{decoded_filename}</code> - имя файла в человекочитаемом виде (UTF-8)</li>
+                                <li><code>{decoded_filename_without_ext}</code> - имя файла без расширения (UTF-8)</li>
+                                <li><code>{bucket}</code> - имя бакета</li>
+                                <li><code>{endpoint}</code> - эндпоинт</li>
+                                <li><code>{dirname}</code> - путь к папке (punycode, со слешем в конце)</li>
+                            </ul>
+                            <p><strong>Важно:</strong> Все ссылки генерируются в punycode для корректной работы с нелатинскими символами.</p>
+                            <p><strong>Пример:</strong> https://{bucket}.s3.amazonaws.com/{file}{filename}</p>
+                            <p><small>Результат: https://my-bucket.s3.amazonaws.com/пример/файл.jpg → https://my-bucket.s3.amazonaws.com/xn--e1afmkfd/ xn--80atc0d.jpg</small></p>
+                        </div>
+                        
+                        <button onclick="saveLinkTemplate()" class="btn-secondary">
+                            <i class="fas fa-save"></i> Сохранить шаблон
+                        </button>
+                        <button onclick="testLinkTemplate()" class="btn-secondary" style="margin-top: 5px;">
+                            <i class="fas fa-eye"></i> Проверить шаблон
+                        </button>
+                    </div>
+                    
+                    <div class="link-actions">
+                        <button onclick="generateLinks()" class="btn-success" id="generateLinksBtn" disabled>
+                            <i class="fas fa-file-csv"></i> Создать и скачать CSV
+                        </button>
+                        <button onclick="clearSelection()" class="btn-secondary">
+                            <i class="fas fa-times"></i> Очистить выбор
+                        </button>
+                    </div>
+                    
+                    <div class="selected-files-info" id="selectedFilesInfo">
+                        Выбрано файлов: <span id="selectedCount">0</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Основная рабочая область -->
+            <main class="work-area">
+                <!-- Панель подключения -->
+                <div class="connection-panel" id="connectionPanel">
+                    <div class="selected-profile" id="selectedProfile"></div>
+                    <div class="connection-form" id="connectionForm">
+                        <form id="loginForm" onsubmit="event.preventDefault(); connect()">
+                            <div class="credentials-row">
+                                <input type="text" 
+                                       id="accessKey" 
+                                       name="username"
+                                       placeholder="Access Key ID" 
+                                       autocomplete="username"
+                                       required>
+                                <input type="password" 
+                                       id="secretKey" 
+                                       name="password"
+                                       placeholder="Secret Access Key" 
+                                       autocomplete="current-password"
+                                       required>
+                                <button type="submit" class="btn-success" id="connectBtn">
+                                    <i class="fas fa-link"></i> Подключиться
+                                </button>
+                                <button type="button" onclick="disconnect()" class="btn-danger" id="disconnectBtn" style="display: none;">
+                                    <i class="fas fa-unlink"></i> Отключиться
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Навигационные вкладки -->
+                <div class="tabs">
+                    <button class="tab-button active" onclick="switchTab('browser')">
+                        <i class="fas fa-folder-open"></i> Файловый браузер
+                    </button>
+                    <button class="tab-button" onclick="switchTab('logs')">
+                        <i class="fas fa-history"></i> Логи
+                    </button>
+                </div>
+
+                <!-- Вкладка файлового браузера -->
+                <div id="browserTab" class="tab-content active">
+                    <!-- Навигация -->
+                    <div class="navigation">
+                        <button onclick="goUp()" id="upButton" disabled>
+                            <i class="fas fa-level-up-alt"></i> Вверх
+                        </button>
+                        <div class="path" id="currentPath">/</div>
+                        <div class="upload-buttons">
+                            <button onclick="uploadFiles()" class="btn-primary" id="uploadFilesBtn">
+                                <i class="fas fa-file-upload"></i> Загрузить файлы
+                            </button>
+                            <button onclick="uploadFolder()" class="btn-primary" id="uploadFolderBtn">
+                                <i class="fas fa-folder-upload"></i> Загрузить папку
+                            </button>
+                            <button onclick="createFolder()" class="btn-primary">
+                                <i class="fas fa-folder-plus"></i> Новая папка
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Область загрузки -->
+                    <div class="upload-area" id="dropZone">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Перетащите файлы или папки сюда для загрузки</p>
+                        <p class="drag-hint"><i class="fas fa-folder"></i> Поддерживается рекурсивная загрузка папок</p>
+                        <p class="drag-hint"><i class="fas fa-arrows-alt"></i> Перетаскивайте файлы и папки внутри списка для перемещения</p>
+                    </div>
+
+                    <!-- Скрытые input для загрузки -->
+                    <input type="file" id="fileInput" multiple style="display: none">
+                    <input type="file" id="folderInput" webkitdirectory directory style="display: none">
+
+                    <!-- Список файлов -->
+                    <div class="file-list" id="fileListContainer">
+                        <div class="file-list-header">
+                            <div class="checkbox-cell">
+                                <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)">
+                            </div>
+                            <span>Имя</span>
+                            <span>Размер</span>
+                            <span>Дата изменения</span>
+                            <span>Действия</span>
+                        </div>
+                        <div id="fileList" class="file-list-items">
+                            <!-- Файлы и папки будут загружены сюда -->
+                        </div>
+                    </div>
+
+                    <!-- Прогрессбары операций -->
+                    <div class="progress-bars-container" id="progressBarsContainer" style="display: none;">
+                        <h3><i class="fas fa-tasks"></i> Операции</h3>
+                        
+                        <!-- Загрузка -->
+                        <div id="uploadProgress" class="progress-item" style="display: none;">
+                            <div class="progress-header">
+                                <span><i class="fas fa-cloud-upload-alt"></i> Загрузка</span>
+                                <span id="uploadSpeed">0 KB/s</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div id="uploadProgressFill" class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-status" id="uploadStatus">Подготовка...</div>
+                            <div class="progress-details" id="uploadDetails"></div>
+                        </div>
+                        
+                        <!-- Скачивание -->
+                        <div id="downloadProgress" class="progress-item" style="display: none;">
+                            <div class="progress-header">
+                                <span><i class="fas fa-cloud-download-alt"></i> Скачивание</span>
+                                <span id="downloadSpeed">0 KB/s</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div id="downloadProgressFill" class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-status" id="downloadStatus">Подготовка...</div>
+                            <div class="progress-details" id="downloadDetails"></div>
+                        </div>
+                        
+                        <!-- Очередь -->
+                        <div id="queueInfo" class="queue-info" style="display: none;">
+                            <i class="fas fa-clock"></i> В очереди: <span id="queueCount">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка логов -->
+                <div id="logsTab" class="tab-content">
+                    <div class="logs-header">
+                        <h3><i class="fas fa-history"></i> Журнал событий</h3>
+                        <button onclick="refreshLogs()" class="btn-secondary">
+                            <i class="fas fa-sync-alt"></i> Обновить
+                        </button>
+                    </div>
+                    <div class="logs-container" id="logsContainer">
+                        <!-- Логи будут загружены сюда -->
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания папки -->
+    <div id="folderModal" class="modal">
+        <div class="modal-content">
+            <h3>Создать новую папку</h3>
+            <input type="text" id="newFolderName" placeholder="Название папки" autocomplete="off">
+            <div class="modal-buttons">
+                <button onclick="createFolderConfirm()" class="btn-success">Создать</button>
+                <button onclick="closeModal()" class="btn-secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно предпросмотра ссылок -->
+    <div id="previewModal" class="modal">
+        <div class="modal-content modal-lg">
+            <h3><i class="fas fa-link"></i> Сгенерированные ссылки</h3>
+            <div class="preview-content" id="previewContent">
+                <!-- Предпросмотр ссылок -->
+            </div>
+            <div class="modal-buttons">
+                <button onclick="downloadCsv()" class="btn-success">
+                    <i class="fas fa-download"></i> Скачать CSV
+                </button>
+                <button onclick="closePreviewModal()" class="btn-secondary">
+                    <i class="fas fa-times"></i> Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения перемещения -->
+    <div id="moveModal" class="modal">
+        <div class="modal-content">
+            <h3><i class="fas fa-arrows-alt"></i> Подтверждение перемещения</h3>
+            <p id="moveMessage">Переместить выбранные элементы?</p>
+            <div class="selected-items-preview" id="selectedItemsPreview"></div>
+            <div class="modal-buttons">
+                <button onclick="confirmMove()" class="btn-success">
+                    <i class="fas fa-check"></i> Подтвердить
+                </button>
+                <button onclick="cancelMove()" class="btn-secondary">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
